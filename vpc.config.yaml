@@ -16,6 +16,8 @@ subnets:
     type: public
 
 enable_transit_vpc: false
+enable_vpc_peering: false
+peer_route_tables: 0
 
 securityGroups:
   ops:

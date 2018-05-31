@@ -221,6 +221,43 @@ CloudFormation do
     end
   end
 
+  if enable_vpc_peering
+    Condition('PeerVPC', FnAnd([ FnNot(FnEquals(Ref('PeerVpcId'), '')), FnNot(FnEquals(Ref('PeerVpcCidr'), '')) ]))
+    VPCPeeringConnection('VPCPeering') do
+      Condition 'PeerVPC'
+      VpcId Ref('VPC')
+      PeerVpcId Ref('PeerVpcId')
+      Tags [ { Key: 'Name', Value: FnJoin('', [ Ref('EnvironmentName'), '-vpc-peering' ]) } ]
+    end
+
+    Route("RouteToPeerPublic") do
+      Condition "PeerVPC"
+      RouteTableId Ref('RouteTablePublic')
+      DestinationCidrBlock Ref('PeerVpcCidr')
+      VpcPeeringConnectionId Ref('VPCPeering')
+    end
+
+    maximum_availability_zones.times do |az|
+      Condition("PeerAz#{az}", FnAnd([ Condition('PeerVPC'), Condition("Az#{az}") ]))
+      Route("RouteToPeer#{az}") do
+        Condition "PeerAz#{az}"
+        RouteTableId Ref("RouteTablePrivate#{az}")
+        DestinationCidrBlock Ref('PeerVpcCidr')
+        VpcPeeringConnectionId Ref('VPCPeering')
+      end
+    end
+
+    peer_route_tables.times do |i|
+      Condition("PeerRouteTable#{i}", FnAnd([ Condition('PeerVPC'), FnNot(FnEquals(Ref("PeerRouteTableId#{i}"), '')) ]))
+      Route("RouteFromPeer#{i}") do
+        Condition "PeerRouteTable#{i}"
+        RouteTableId Ref("PeerRouteTableId#{i}")
+        DestinationCidrBlock FnJoin('', [ Ref('NetworkPrefix'), '.', Ref('StackOctet'), '.0.0/', Ref('StackMask') ])
+        VpcPeeringConnectionId Ref('VPCPeering')
+      end
+    end
+  end
+
   # Outputs
   Output("VPCId") { Value(Ref('VPC')) }
   Output("SecurityGroupOps") { Value(Ref('SecurityGroupOps')) }
@@ -233,5 +270,3 @@ CloudFormation do
   }
 
 end
-
-

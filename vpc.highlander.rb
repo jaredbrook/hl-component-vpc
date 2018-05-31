@@ -29,6 +29,14 @@ HighlanderComponent do
       StackParam 'EnableTransitVPC', 'false', isGlobal: true
     end
 
+    if enable_vpc_peering
+      StackParam 'PeerVpcId', '', isGlobal: true
+      StackParam 'PeerVpcCidr', '', isGlobal: true
+      peer_route_tables.times do |i|
+        StackParam "PeerRouteTableId#{i}", '', isGlobal: true
+      end
+    end
+
     # Account mappings for AZs
     maximum_availability_zones.times do |x|
       az = x
